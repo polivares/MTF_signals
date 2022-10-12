@@ -36,7 +36,7 @@ def signals2images(signals, fs, spectrogram = 'spectrogram', img_size = (256, 25
         images.append(signal2spectrogram(signal, fs, 
                                          spectrogram=spectrogram, 
                                          img_size=img_size,
-                                         window=window)
+                                         window=window))
     img_reshape = (len(signals.columns),) + img_size + (1,)
     images = np.array(images).reshape(img_reshape)
     return images
