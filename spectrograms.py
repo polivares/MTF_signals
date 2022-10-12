@@ -10,11 +10,11 @@ import os
 spectrograms = ['spectrogram', 'mel', 'mfcc']
 image_types = ['full', 'train', 'test', 'val']
 
-def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 256)):
+def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 256), window=('tukey', 0.25)):
     assert spectrogram in spectrograms
     # Get spectrogram from signal
     if spectrogram == 'spectrogram':
-        _, _, Sxx = sp.signal.spectrogram(signal, fs)
+        _, _, Sxx = sp.signal.spectrogram(signal, fs, window=window)
     elif spectrogram == 'mel':
         Sxx = melspectrogram(signal.to_numpy().astype(float), fs)
     elif spectrogram == 'mfcc':
