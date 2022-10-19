@@ -6,6 +6,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 import os
+import cv2
 
 spectrograms = ['spectrogram', 'mel', 'mfcc']
 image_types = ['full', 'train', 'test', 'val']
@@ -41,7 +42,7 @@ def signals2images(signals, fs, spectrogram = 'spectrogram', img_size = (256, 25
     images = np.array(images).reshape(img_reshape)
     return images
 
-def saveImages(images, labels, root_dir = '', spectrogram = 'spectrogram', image_type='full'):
+def saveImages(images, labels, root_dir = '', spectrogram = 'spectrogram', image_type='full', saveViz=False):
     assert spectrogram in spectrograms
     assert image_type in image_types
     image_path = os.path.join(root_dir, 'dataset_'+spectrogram, image_type)
@@ -53,6 +54,13 @@ def saveImages(images, labels, root_dir = '', spectrogram = 'spectrogram', image
 
     np.save(os.path.join(image_path,image_file), images)
     np.save(os.path.join(image_path,label_file), labels)
+
+    if saveViz:
+        for image, i in zip(images, range(labels.size)):
+            image_file = f'image_{image_type}_{i}.jpg'
+            cv2.imwrite(os.path.join(image_path,image_file), image)
+
+
     
 
 
