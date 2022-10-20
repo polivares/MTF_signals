@@ -2,13 +2,14 @@ import scipy as sp
 from librosa.feature import melspectrogram, mfcc
 from sklearn.feature_extraction import img_to_graph
 from sklearn.preprocessing import MinMaxScaler
+from pyts.image import MarkovTransitionField
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 import os
 import cv2
 
-spectrograms = ['spectrogram', 'mel', 'mfcc']
+spectrograms = ['spectrogram', 'mel', 'mfcc', 'mtf']
 image_types = ['full', 'train', 'test', 'val']
 
 def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 256), window=('tukey', 0.25)):
@@ -20,6 +21,9 @@ def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 2
         Sxx = melspectrogram(signal.to_numpy().astype(float), fs)
     elif spectrogram == 'mfcc':
         Sxx = mfcc(signal.to_numpy().astype(float), fs)
+    elif spectrogram == 'mtf':
+        transformer = MarkovTransitionField(30)
+        Sxx = transformer.fit_transform(signal.to_numpy().astype(float))[0]
     # Transform spectrogram to image range (0, 255)
     scaler = MinMaxScaler(feature_range=(0,255))
     Sxx = scaler.fit_transform(Sxx)
