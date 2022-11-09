@@ -2,8 +2,10 @@ import scipy as sp
 from librosa.feature import melspectrogram, mfcc
 from sklearn.feature_extraction import img_to_graph
 from sklearn.preprocessing import MinMaxScaler
+from scipy import signal as sgn
 from pyts.image import MarkovTransitionField
 import tsia.markov
+import pandas as pd
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -13,7 +15,7 @@ import cv2
 spectrograms = ['spectrogram', 'mel', 'mfcc', 'mtf', 'mtm']
 image_types = ['full', 'train', 'test', 'val']
 
-def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 256), window=('tukey', 0.25)):
+def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', resize = True, img_size=(256, 256), window=('tukey', 0.25)):
     assert spectrogram in spectrograms
     # Get spectrogram from signal
     if spectrogram == 'spectrogram':
@@ -23,10 +25,21 @@ def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 2
     elif spectrogram == 'mfcc':
         Sxx = mfcc(signal.to_numpy().astype(float), fs)
     elif spectrogram == 'mtf':
-        transformer = MarkovTransitionField(30)
-        Sxx = transformer.fit_transform(signal.to_numpy().astype(float).reshape(1,-1))[0]
+        transformer = MarkovTransitionField(img_size[0])
+        signal_resample = sgn.resample(signal, 10000)
+        Sxx = transformer.fit_transform(signal_resample.astype(float).reshape(1, -1))[0]
     elif spectrogram == 'mtm':
-        X_binned, bin_edges = tsia.markov.discretize(signal, 30, strategy='uniform')
+        # Doing fft 
+        from scipy.fft import fft, fftfreq, ifft
+        duration = 20e-3
+        N = int(fs*duration)
+        yf = fft(signal.values)
+        xf = fftfreq(N, 1 / fs)
+        x_filter = np.logical_xor((xf>.5e7), (xf<-0.5e7))
+        yf_filter = x_filter*yf
+        signal = pd.Series(np.real(ifft(yf_filter)))
+        # finish fft (delete if doesn't work)
+        X_binned, _ = tsia.markov.discretize(signal, img_size[0], strategy='uniform')
         X_mtm = tsia.markov.markov_transition_matrix(X_binned)
         Sxx = tsia.markov.markov_transition_probabilities(X_mtm)
 
@@ -34,11 +47,14 @@ def signal2spectrogram(signal, fs, spectrogram = 'spectrogram', img_size=(256, 2
     scaler = MinMaxScaler(feature_range=(0,255))
     Sxx = scaler.fit_transform(Sxx)
     # Resize image
-    img = np.array(Image.fromarray(Sxx).resize(img_size))
+    if resize == True:
+        img = np.array(Image.fromarray(Sxx).resize(img_size))
+    else:
+        img = Sxx
 
     return img
 
-def signals2images(signals, fs, spectrogram = 'spectrogram', img_size = (256, 256), window=('tukey', 0.25)):
+def signals2images(signals, fs, spectrogram = 'spectrogram', resize = True, img_size = (256, 256), window=('tukey', 0.25)):
     assert spectrogram in spectrograms
     images = []
     for col in tqdm(signals.columns):
@@ -47,7 +63,8 @@ def signals2images(signals, fs, spectrogram = 'spectrogram', img_size = (256, 25
         images.append(signal2spectrogram(signal, fs, 
                                          spectrogram=spectrogram, 
                                          img_size=img_size,
-                                         window=window))
+                                         window=window,
+                                         resize=resize))
     img_reshape = (len(signals.columns),) + img_size + (1,)
     images = np.array(images).reshape(img_reshape)
     return images
