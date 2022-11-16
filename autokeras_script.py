@@ -6,6 +6,7 @@ import tensorflow as tf
 import autokeras as ak
 import argparse
 import warnings
+import keras_tuner
 warnings.filterwarnings('ignore')
 
 spectrograms = ['spectrogram', 'mel', 'mfcc', 'mtf', 'mtm']
@@ -90,6 +91,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--project_name', type=str, required=True)
     parser.add_argument('-sz', '--size', type=str, required=True)
+    parser.add_argument('-mt', '--max_trials', type=int, default=10, required=False)
     parser.add_argument('-s', '--spectrograms', nargs='+', default=['spectrogram'])
     parser.add_argument('-b', '--balanced',
                     action='store_true', required=False)
@@ -120,14 +122,24 @@ def main():
     clf = ak.ImageClassifier(overwrite=False,  
                         metrics=METRICS,
                         project_name=project_name,
-                        seed=42)
+                        seed=42,
+                        max_trials=args.max_trials, 
+                        objective=keras_tuner.Objective('val_recall', direction='max')
+                       )
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=f'logs/{project_name}')
     clf.fit(X_train, y_train, 
             validation_data=(X_val, y_val),
-            batch_size=100,
+            batch_size=20,
             callbacks=[tensorboard_callback]
         )
+    # Export best model
+    model = clf.export_model()
 
+    try:
+        model.save(f"{project_name}/model_autokeras", save_format="tf")
+    except Exception:
+        model.save(f"{project_name}/model_autokeras.h5")
+        
 if __name__ == '__main__':
     main()
