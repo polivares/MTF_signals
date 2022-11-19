@@ -11,6 +11,71 @@ warnings.filterwarnings('ignore')
 
 spectrograms = ['spectrogram', 'mel', 'mfcc', 'mtf', 'mtm']
 
+# Metrics
+import keras.backend as K
+
+def f1_score(y_true, y_pred):
+    threshold = tf.constant(0.5)
+    y_pred = tf.cast(tf.greater(y_pred, threshold), tf.float32)
+    y_true = tf.cast(y_true, dtype=tf.float32)
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    recall = true_positives / (possible_positives + K.epsilon())
+    f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
+    return f1_val
+
+def matthews_correlation(y_true, y_pred):
+    y_true = tf.cast(y_true, dtype=tf.float32)
+    threshold = tf.constant(0.5)
+    y_pred = tf.cast(tf.greater(y_pred, threshold), tf.float32)
+    y_pred_pos = K.round(K.clip(y_pred, 0, 1))
+    y_pred_neg = 1 - y_pred_pos
+
+    y_pos = K.round(K.clip(y_true, 0, 1))
+    y_neg = 1 - y_pos
+
+    tp = K.sum(y_pos * y_pred_pos)
+    tn = K.sum(y_neg * y_pred_neg)
+
+    fp = K.sum(y_neg * y_pred_pos)
+    fn = K.sum(y_pos * y_pred_neg)
+
+    numerator = (tp * tn - fp * fn)
+    denominator = K.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+
+    return numerator / (denominator + K.epsilon())
+
+
+# def f1_score(y_true, y_pred):
+#     true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+#     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+#     predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+#     precision = true_positives / (predicted_positives + K.epsilon())
+#     recall = true_positives / (possible_positives + K.epsilon())
+#     f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
+#     return f1_val
+
+# def matthews_correlation(y_true, y_pred):
+#     y_pred_pos = K.round(K.clip(y_pred, 0, 1))
+#     y_pred_neg = 1 - y_pred_pos
+
+#     y_pos = K.round(K.clip(y_true, 0, 1))
+#     y_neg = 1 - y_pos
+
+#     tp = K.sum(y_pos * y_pred_pos)
+#     tn = K.sum(y_neg * y_pred_neg)
+
+#     fp = K.sum(y_neg * y_pred_pos)
+#     fn = K.sum(y_pos * y_pred_neg)
+
+#     numerator = (tp * tn - fp * fn)
+#     denominator = K.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+
+#     return numerator / (denominator + K.epsilon())
+
+
 def normImages(X):
     for i, image in enumerate(X):
         X_temp = X[i].reshape(X[i].shape[0:2])
@@ -115,6 +180,8 @@ def main():
     tf.keras.metrics.Recall(name='recall'),
     tf.keras.metrics.AUC(name='auc'),
     tf.keras.metrics.AUC(name='prc', curve='PR'), # precision-recall curve
+    f1_score,
+    matthews_correlation
     ]
 
     project_name = args.project_name
@@ -124,7 +191,7 @@ def main():
                         project_name=project_name,
                         seed=42,
                         max_trials=args.max_trials, 
-                        objective=keras_tuner.Objective('val_recall', direction='max')
+                        objective=keras_tuner.Objective('val_matthews_correlation', direction='max')
                        )
 
     tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=f'logs/{project_name}')
